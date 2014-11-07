@@ -3172,8 +3172,6 @@ zfs_do_list(int argc, char **argv)
 		case 'J':
 			cb.cb_header_counter = ft_countword((char const *)default_fields, ',');
 			cb.cb_header = ft_strsplit((char *)default_fields, ',');
-			cb.cb_literal = B_TRUE;
-			flags |= ZFS_ITER_LITERAL_PROPS;
 			(void) printf("{\"cmd\" : \"zfs list\",");
 			(void) printf("\"output\" : [");
 
