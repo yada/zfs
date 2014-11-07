@@ -2825,18 +2825,10 @@ zfs_do_userspace(int argc, char **argv)
  * Otherwise, list the specified datasets, optionally recursing down them if
  * '-r' is specified.
  */
-//typedef struct list_cbdata {
-//	int		cb_header_counter;
-//	char		**cb_header;
-//	int		cb_prop_count;
-//	char		**cb_properties;
-//	boolean_t	cb_json;
-//	boolean_t	cb_first;
-//	boolean_t	cb_literal;
-//	boolean_t	cb_scripted;
-//	zprop_list_t	*cb_proplist;
-//} list_cbdata_t;
 
+/*
+* free an array
+*/
 void		ft_arraydel(char **array)
 {
 	int		i;
@@ -3008,6 +3000,10 @@ print_header(list_cbdata_t *cb)
 	(void) printf("\n");
 }
 
+/*
+*print a json formated output
+*/
+
 void print_json(list_cbdata_t *cb)
 {
 	int	i;
@@ -3095,7 +3091,7 @@ print_dataset(zfs_handle_t *zhp, list_cbdata_t *cb)
 
 		}
 		else
-			/*
+		/*
 		 * If this is being called in scripted mode, or if this is the
 		 * last column and it is left-justified, don't include a width
 		 * format specifier.
