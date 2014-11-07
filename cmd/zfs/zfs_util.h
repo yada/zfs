@@ -39,4 +39,18 @@ libzfs_handle_t *g_zfs;
 }
 #endif
 
+ typedef struct list_cbdata {
+        int             cb_header_counter;
+        char            **cb_header;
+        int             cb_prop_count;
+        char            **cb_properties;
+        boolean_t       cb_json;
+        boolean_t       cb_first;
+        boolean_t       cb_literal;
+        boolean_t       cb_scripted;
+        zprop_list_t    *cb_proplist;
+} list_cbdata_t;
+
+
+
 #endif	/* _ZFS_UTIL_H */

@@ -467,10 +467,17 @@ zfs_for_each(int argc, char **argv, int flags, zfs_type_t types,
 	 * At this point we've got our AVL tree full of zfs handles, so iterate
 	 * over each one and execute the real user callback.
 	 */
+	
 	for (node = uu_avl_first(cb.cb_avl); node != NULL;
 	    node = uu_avl_next(cb.cb_avl, node))
+	{
 		ret |= callback(node->zn_handle, data);
-
+		if (((list_cbdata_t *) data)->cb_json)
+		{
+	   		if (uu_avl_next(cb.cb_avl, node) != NULL) 
+				(void) printf(",");
+		}
+	}
 	/*
 	 * Finally, clean up the AVL tree.
 	 */

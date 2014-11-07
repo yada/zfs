@@ -54,6 +54,7 @@
 #include <sys/fs/zfs.h>
 #include <sys/types.h>
 #include <time.h>
+#include <string.h>
 
 #include <libzfs.h>
 #include <libzfs_core.h>
@@ -2824,12 +2825,146 @@ zfs_do_userspace(int argc, char **argv)
  * Otherwise, list the specified datasets, optionally recursing down them if
  * '-r' is specified.
  */
-typedef struct list_cbdata {
-	boolean_t	cb_first;
-	boolean_t	cb_literal;
-	boolean_t	cb_scripted;
-	zprop_list_t	*cb_proplist;
-} list_cbdata_t;
+//typedef struct list_cbdata {
+//	int		cb_header_counter;
+//	char		**cb_header;
+//	int		cb_prop_count;
+//	char		**cb_properties;
+//	boolean_t	cb_json;
+//	boolean_t	cb_first;
+//	boolean_t	cb_literal;
+//	boolean_t	cb_scripted;
+//	zprop_list_t	*cb_proplist;
+//} list_cbdata_t;
+
+void		ft_arraydel(char **array)
+{
+	int		i;
+
+	i = 0;
+	while (array[i][0])
+	{
+		free(array[i]);
+		i++;
+	}
+	free(array);
+}
+
+void		*ft_memalloc(size_t size)
+{
+	void	*mem;
+
+	mem = malloc(size);
+	if (mem)
+		bzero(mem, size);
+	return (mem);
+}
+
+int		ft_countword(char const *s, char c)
+{
+	int	i;
+	int	word;
+
+	i = 0;
+	word = 0;
+	while (s[i] != 0)
+	{
+		if (s[i] != c && (s[i + 1] == c || s[i + 1] == '\0'))
+			word++;
+		i++;
+	}
+	return (word);
+}
+
+char	*ft_strnew(size_t size)
+{
+	return ((char *) ft_memalloc(size + 1));
+}
+
+char		**ft_arraynew(size_t size)
+{
+	char	**array;
+
+	array = (char **) malloc(sizeof(char *) * (size + 1));
+	array[size] = ft_strnew(0);
+	return (array);
+}
+
+char		*ft_strsub(char const *s, unsigned int start, size_t len)
+{
+	char				*str;
+	unsigned int		i;
+
+	i = 0;
+	if (s)
+	{
+		str = (char *) malloc((len + 1) * sizeof(char));
+		if (str)
+		{
+			while (len)
+			{
+				str[i] = s[start + i];
+				i++;
+				len--;
+			}
+		str[i] = '\0';
+		}
+		return (str);
+	}
+	return (NULL);
+}
+
+static char	**ft_create_tab(char const *str, char c)
+{
+	char	**tab;
+	int		i;
+	int		word;
+
+	i = 0;
+	word = 0;
+	while (str[i] != 0)
+	{
+		if (str[i] != c)
+			word++;
+		while (str[i] != c && str[i] != 0)
+			i++;
+		while (str[i] == c)
+			i++;
+	}
+	tab = (char **) ft_memalloc(sizeof(char *) * word + 1);
+	return (tab);
+}
+
+char		**ft_strsplit(char const *str, char c)
+{
+	char	**tab;
+	int		start;
+	int		word;
+	int		i;
+
+	if (!str)
+		return ((char **) ft_memalloc(sizeof(char *)));
+	tab = ft_create_tab(str, c);
+	start = 0;
+	word = -1;
+	i = 0;
+	while (str[i] != 0)
+	{
+		if (str[i] != c)
+			word++;
+		start = i;
+		while (str[i] != c && str[i] != 0)
+			i++;
+		if (word >= 0)
+			tab[word] = ft_strsub(str, start, i - start);
+		while (str[i] == c)
+			i++;
+	}
+	tab[word + 1] = NULL;
+	return (tab);
+}
+
+
 
 /*
  * Given a list of columns to display, output appropriate headers for each one.
@@ -2861,7 +2996,7 @@ print_header(list_cbdata_t *cb)
 			headerbuf[i] = '\0';
 			header = headerbuf;
 		}
-
+				
 		if (pl->pl_next == NULL && !right_justify)
 			(void) printf("%s", header);
 		else if (right_justify)
@@ -2871,6 +3006,20 @@ print_header(list_cbdata_t *cb)
 	}
 
 	(void) printf("\n");
+}
+
+void print_json(list_cbdata_t *cb)
+{
+	int	i;
+
+	i = 0;
+	(void) printf("{");
+	while(i < cb->cb_header_counter -1)
+	{
+		(void) printf("\"%s\" : \"%s\", ", cb->cb_header[i], cb->cb_properties[i]);
+		i++;
+	}
+	(void) printf("\"%s\" : \"%s\"}", cb->cb_header[i], cb->cb_properties[i]);
 }
 
 /*
@@ -2888,8 +3037,11 @@ print_dataset(zfs_handle_t *zhp, list_cbdata_t *cb)
 	char *propstr;
 	boolean_t right_justify;
 
+	
+	cb->cb_properties = ft_arraynew(cb->cb_header_counter);
+	cb->cb_prop_count = 0;
 	for (; pl != NULL; pl = pl->pl_next) {
-		if (!first) {
+		if ((!first) && (!cb->cb_json)) {
 			if (cb->cb_scripted)
 				(void) printf("\t");
 			else
@@ -2935,20 +3087,35 @@ print_dataset(zfs_handle_t *zhp, list_cbdata_t *cb)
 			right_justify = B_FALSE;
 		}
 
-		/*
+
+		if (cb->cb_json)
+		{					
+				cb->cb_properties[cb->cb_prop_count] = strdup(propstr);
+				cb->cb_prop_count++;
+
+		}
+		else
+			/*
 		 * If this is being called in scripted mode, or if this is the
 		 * last column and it is left-justified, don't include a width
 		 * format specifier.
 		 */
-		if (cb->cb_scripted || (pl->pl_next == NULL && !right_justify))
-			(void) printf("%s", propstr);
-		else if (right_justify)
-			(void) printf("%*s", (int)pl->pl_width, propstr);
-		else
-			(void) printf("%-*s", (int)pl->pl_width, propstr);
+		{
+			if (cb->cb_scripted || (pl->pl_next == NULL && !right_justify))
+				(void) printf("%s", propstr);
+			else if (right_justify)
+				(void) printf("%*s", (int)pl->pl_width, propstr);
+			else
+				(void) printf("%-*s", (int)pl->pl_width, propstr);
+		}
 	}
-
-	(void) printf("\n");
+	if (cb->cb_json)
+	{
+		print_json(cb);
+		ft_arraydel(cb->cb_properties);	
+	}
+	else
+		(void) printf("\n");
 }
 
 /*
@@ -2958,11 +3125,15 @@ static int
 list_callback(zfs_handle_t *zhp, void *data)
 {
 	list_cbdata_t *cbp = data;
-
-	if (cbp->cb_first) {
-		if (!cbp->cb_scripted)
-			print_header(cbp);
-		cbp->cb_first = B_FALSE;
+	
+	if (cbp->cb_first) 
+	{
+		if (!cbp->cb_json)
+		{
+			if (!cbp->cb_scripted)
+				print_header(cbp);
+			cbp->cb_first = B_FALSE;
+		}
 	}
 
 	print_dataset(zhp, cbp);
@@ -2987,7 +3158,7 @@ zfs_do_list(int argc, char **argv)
 	int flags = ZFS_ITER_PROP_LISTSNAPS | ZFS_ITER_ARGS_CAN_BE_PATHS;
 
 	/* check options */
-	while ((c = getopt(argc, argv, "HS:d:o:prs:t:")) != -1) {
+	while ((c = getopt(argc, argv, "JHS:d:o:prs:t:")) != -1) {
 		switch (c) {
 		case 'o':
 			fields = optarg;
@@ -3002,6 +3173,15 @@ zfs_do_list(int argc, char **argv)
 		case 'r':
 			flags |= ZFS_ITER_RECURSE;
 			break;
+		case 'J':
+			cb.cb_header_counter = ft_countword((char const *)default_fields, ',');
+			cb.cb_header = ft_strsplit((char *)default_fields, ',');
+			cb.cb_literal = B_TRUE;
+			flags |= ZFS_ITER_LITERAL_PROPS;
+			(void) printf("{\"cmd\" : \"zfs list\",");
+			(void) printf("\"output\" : [");
+
+			cb.cb_json = B_TRUE;
 		case 'H':
 			cb.cb_scripted = B_TRUE;
 			break;
@@ -3097,6 +3277,8 @@ zfs_do_list(int argc, char **argv)
 
 	ret = zfs_for_each(argc, argv, flags, types, sortcol, &cb.cb_proplist,
 	    limit, list_callback, &cb);
+	if (cb.cb_json)
+		(void) printf("]} \n");
 
 	zprop_free_list(cb.cb_proplist);
 	zfs_free_sort_columns(sortcol);
